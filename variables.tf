@@ -3,7 +3,7 @@ variable "environment" {
   type = string
 
   validation {
-    condition = can(regex("dev|test|prod"))
+    condition = can(regex("dev|test|prod"), var.environment)
     error_message = "Invalid environment provided."
   }
 }
