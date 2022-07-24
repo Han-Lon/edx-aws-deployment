@@ -14,6 +14,8 @@ data "aws_ami" "al2-ami" {
   }
 }
 
+data "aws_caller_identity" "current_account" {}
+
 module "edx-vpc" {
   source = "terraform-aws-modules/vpc/aws"
 
@@ -32,6 +34,48 @@ module "edx-vpc" {
     Environment = var.environment
     Project = "Open-edX"
   }
+}
+
+module "edx-config-bucket" {
+  source = "terraform-aws-modules/s3-bucket/aws"
+
+  bucket = "edx-config-${var.environment}-${data.aws_caller_identity.current_account.account_id}-bucket"
+  acl = "private"
+
+}
+
+data "aws_iam_policy_document" "s3-read-policy" {
+  statement {
+    sid = "S3GetObjects"
+    actions = ["s3:GetObject", "s3:GetObjectAcl"]
+    resources = ["${module.edx-config-bucket.s3_bucket_arn}/*"]
+  }
+}
+
+module "s3_access_policy" {
+  source = "terraform-aws-modules/iam/aws//modules/iam-policy"
+
+  name = "edx-get-object-${var.environment}-policy"
+  path = "/"
+  description = "Allow getting objects from the edx config bucket"
+
+  policy = data.aws_iam_policy_document.s3-read-policy.json
+}
+
+module "s3_access_role" {
+  source = "terraform-aws-modules/iam/aws//modules/iam-assumable-role"
+
+  trusted_role_services = [
+    "ec2.amazonaws.com"
+  ]
+
+  create_role = true
+  create_instance_profile = true
+
+  role_name = "edx-server-${var.environment}-role"
+  custom_role_policy_arns = [
+    module.s3_access_policy.arn
+  ]
 }
 
 resource "aws_security_group" "edx-security-group" {
@@ -90,6 +134,8 @@ resource "aws_spot_instance_request" "edx-spot-instance" {
 
   security_groups = [aws_security_group.edx-security-group.id]
 
+  iam_instance_profile = module.s3_access_role.iam_instance_profile_arn
+
   root_block_device {
     volume_size = 25  # Recommended MIN volume size per Open edX docs
   }
@@ -102,6 +148,8 @@ yum install docker python3-pip gcc python3-devel -y
 yes | pip3 install docker-compose
 systemctl enable docker.service
 systemctl start docker.service
+
+usermod -a -G docker ec2-user
 
 pip3 install "tutor[full]"
 EOF
