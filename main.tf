@@ -47,7 +47,7 @@ module "edx-config-bucket" {
 resource "aws_s3_bucket_object" "config-file-upload" {
   bucket = module.edx-config-bucket.s3_bucket_id
   key = "config.yaml"
-  source = "./config.yaml"
+  source = "./config.yml"
 
   etag = filemd5("./config.yaml")
 }
