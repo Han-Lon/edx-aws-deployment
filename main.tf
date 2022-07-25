@@ -49,7 +49,7 @@ resource "aws_s3_bucket_object" "config-file-upload" {
   key = "config.yaml"
   source = "./config.yml"
 
-  etag = filemd5("./config.yaml")
+  etag = filemd5("./config.yml")
 }
 
 data "aws_iam_policy_document" "s3-read-policy" {
