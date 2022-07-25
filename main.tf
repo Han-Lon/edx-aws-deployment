@@ -44,6 +44,14 @@ module "edx-config-bucket" {
 
 }
 
+resource "aws_s3_bucket_object" "config-file-upload" {
+  bucket = module.edx-config-bucket.s3_bucket_name
+  key = "config.yaml"
+  source = "./config.yaml"
+
+  etag = filemd5("./config.yaml")
+}
+
 data "aws_iam_policy_document" "s3-read-policy" {
   statement {
     sid = "S3GetObjects"
@@ -152,5 +160,7 @@ systemctl start docker.service
 usermod -a -G docker ec2-user
 
 pip3 install "tutor[full]"
+
+aws s3 cp s3://${aws_s3_bucket_object.config-file-upload.bucket}/${aws_s3_bucket_object.config-file-upload.key} ./config.yaml
 EOF
 }

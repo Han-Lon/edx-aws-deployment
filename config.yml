@@ -1,0 +1,8 @@
+CMS_HOST: studio.${url}
+CONTACT_EMAIL: contact@edu.bitular.link
+ENABLE_HTTPS: false
+LANGUAGE_CODE: en
+LMS_HOST: ${url}
+PLATFORM_NAME: Sick Ass Open edX
+PLUGINS:
+- mfe
