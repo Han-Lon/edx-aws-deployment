@@ -161,6 +161,6 @@ usermod -a -G docker ec2-user
 
 pip3 install "tutor[full]"
 
-aws s3 cp s3://${aws_s3_bucket_object.config-file-upload.bucket}/${aws_s3_bucket_object.config-file-upload.key} ./config.yml
+aws s3 cp s3://${aws_s3_object.config-file-upload.bucket}/${aws_s3_object.config-file-upload.key} ./config.yml
 EOF
 }
