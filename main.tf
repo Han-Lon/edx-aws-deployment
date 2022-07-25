@@ -44,9 +44,9 @@ module "edx-config-bucket" {
 
 }
 
-resource "aws_s3_bucket_object" "config-file-upload" {
+resource "aws_s3_object" "config-file-upload" {
   bucket = module.edx-config-bucket.s3_bucket_id
-  key = "config.yaml"
+  key = "config.yml"
   source = "./config.yml"
 
   etag = filemd5("./config.yml")
@@ -142,7 +142,7 @@ resource "aws_spot_instance_request" "edx-spot-instance" {
 
   security_groups = [aws_security_group.edx-security-group.id]
 
-  iam_instance_profile = module.s3_access_role.iam_instance_profile_arn
+  iam_instance_profile = module.s3_access_role.iam_instance_profile_name
 
   root_block_device {
     volume_size = 25  # Recommended MIN volume size per Open edX docs
