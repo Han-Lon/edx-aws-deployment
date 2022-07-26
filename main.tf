@@ -44,12 +44,18 @@ module "edx-config-bucket" {
 
 }
 
+resource "local_file" "config-file-formatted" {
+  filename = "formatted-config.yml"
+  content = templatefile("./config.yml", {
+    url = var.environment_url
+  })
+}
+
 resource "aws_s3_object" "config-file-upload" {
   bucket = module.edx-config-bucket.s3_bucket_id
   key    = "config.yml"
-  source = templatefile("./config.yml", {
-    url = var.environment_url
-  })
+  source = local_file.config-file-formatted.filename
+
 
   etag = filemd5("./config.yml")
 }
