@@ -17,7 +17,7 @@ data "aws_ami" "al2-ami" {
 data "aws_caller_identity" "current_account" {}
 
 module "edx-vpc" {
-  source = "terraform-aws-modules/vpc/aws"
+  source = "registry.terraform.io/terraform-aws-modules/vpc/aws"
 
   name = "edx-${var.environment}-vpc"
   cidr = "10.0.0.0/16"
@@ -37,7 +37,7 @@ module "edx-vpc" {
 }
 
 module "edx-config-bucket" {
-  source = "terraform-aws-modules/s3-bucket/aws"
+  source = "registry.terraform.io/terraform-aws-modules/s3-bucket/aws"
 
   bucket = "edx-config-${var.environment}-${data.aws_caller_identity.current_account.account_id}-bucket"
   acl = "private"
@@ -61,7 +61,7 @@ data "aws_iam_policy_document" "s3-read-policy" {
 }
 
 module "s3_access_policy" {
-  source = "terraform-aws-modules/iam/aws//modules/iam-policy"
+  source = "registry.terraform.io/terraform-aws-modules/iam/aws//modules/iam-policy"
 
   name = "edx-get-object-${var.environment}-policy"
   path = "/"
@@ -71,7 +71,7 @@ module "s3_access_policy" {
 }
 
 module "s3_access_role" {
-  source = "terraform-aws-modules/iam/aws//modules/iam-assumable-role"
+  source = "registry.terraform.io/terraform-aws-modules/iam/aws//modules/iam-assumable-role"
 
   trusted_role_services = [
     "ec2.amazonaws.com"
@@ -79,6 +79,7 @@ module "s3_access_role" {
 
   create_role = true
   create_instance_profile = true
+  role_requires_mfa = false
 
   role_name = "edx-server-${var.environment}-role"
   custom_role_policy_arns = [

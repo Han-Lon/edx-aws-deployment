@@ -31,3 +31,5 @@ override.tf.json
 
 # Ignore IDE specific files
 .idea/
+
+*.tfvars
