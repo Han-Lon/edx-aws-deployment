@@ -1,5 +1,5 @@
 CMS_HOST: studio.${url}
-CONTACT_EMAIL: contact@edu.bitular.link
+CONTACT_EMAIL: contact@${url}
 ENABLE_HTTPS: false
 LANGUAGE_CODE: en
 LMS_HOST: ${url}
