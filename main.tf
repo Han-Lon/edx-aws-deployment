@@ -160,7 +160,7 @@ resource "aws_spot_instance_request" "edx-spot-instance" {
 
   tags = {
     Environment = var.environment
-    Project     = "Open edX"
+    Project     = "Open-edX"
   }
 
   user_data = <<EOF
@@ -193,7 +193,7 @@ resource "aws_ssm_association" "launch-tutor-task" {
 
   targets {
     key    = "tag:Project"
-    values = ["Open edX"]
+    values = ["Open-edX"]
   }
 
   parameters = {
