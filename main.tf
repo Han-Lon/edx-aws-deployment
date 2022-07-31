@@ -160,7 +160,7 @@ resource "aws_spot_instance_request" "edx-spot-instance" {
   subnet_id                   = module.edx-vpc.public_subnets[0]
   associate_public_ip_address = true
 
-  security_groups = [aws_security_group.edx-security-group.id]
+  vpc_security_group_ids = [aws_security_group.edx-security-group.id]
 
   iam_instance_profile = module.s3_access_role.iam_instance_profile_name
 
