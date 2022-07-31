@@ -188,7 +188,7 @@ data "aws_ssm_document" "launch-tutor-doc" {
 }
 
 resource "aws_ssm_association" "launch-tutor-task" {
-  depends_on = [aws_spot_instance_request.edx-spot-instance]
+  depends_on = [aws_spot_instance_request.edx-spot-instance, aws_ec2_tag.edx-server-tagging]
   name             = data.aws_ssm_document.launch-tutor-doc.name
 
   targets {
@@ -204,4 +204,17 @@ resource "aws_ssm_association" "launch-tutor-task" {
 
   wait_for_success_timeout_seconds = 1800
 
+}
+
+locals {
+  server_tags = {"Project": "Open-edX", "Name": "Open-edX-server"}
+}
+
+# Needed because the spot request resource in Terraform doesn't apply tags to the instance that's created, just the spot request itself
+# https://github.com/hashicorp/terraform/issues/3263
+resource "aws_ec2_tag" "edx-server-tagging" {
+  for_each = local.server_tags
+  key         = each.key
+  resource_id = aws_spot_instance_request.edx-spot-instance.spot_instance_id
+  value       = each.value
 }
