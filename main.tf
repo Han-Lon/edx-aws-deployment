@@ -208,7 +208,7 @@ resource "aws_ssm_association" "launch-tutor-task" {
 
   parameters = {
     SourceType = "S3"
-    SourceInfo = jsonencode({"path": "s3://${aws_s3_object.ansible-playbook-upload.bucket}/${aws_s3_object.ansible-playbook-upload.key}"})
+    SourceInfo = jsonencode({"path": "https://${module.edx-config-bucket.s3_bucket_bucket_regional_domain_name}/${aws_s3_object.ansible-playbook-upload.key}"})
     InstallDependencies = "True"
   }
 
