@@ -16,7 +16,7 @@
 
     - name: Pull most recent Open edX containers using Tutor
       ansible.builtin.shell:
-        cmd: tutor local dc pull
+        cmd: /usr/local/bin/tutor local dc pull
         chdir: /home/ec2-user
       args:
         executable: /bin/bash
@@ -25,7 +25,7 @@
 
     - name: Start Open edX using Tutor
       ansible.builtin.shell:
-        cmd: tutor local start --detac
+        cmd: /usr/local/bin/tutor local start --detac
         chdir: /home/ec2-user
       args:
         executable: /bin/bash
