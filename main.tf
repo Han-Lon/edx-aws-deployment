@@ -193,7 +193,7 @@ EOF
 }
 
 data "aws_ssm_document" "launch-tutor-doc" {
-  name            = "AWS-RunShellScript"
+  name            = "AWS-ApplyAnsiblePlaybooks"
   document_format = "YAML"
 }
 
