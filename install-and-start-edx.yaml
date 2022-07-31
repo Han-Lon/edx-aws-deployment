@@ -20,6 +20,8 @@
         chdir: /home/ec2-user
       args:
         executable: /bin/bash
+      become: yes
+      become_user: ec2-user
 
     - name: Start Open edX using Tutor
       ansible.builtin.shell:
@@ -27,3 +29,5 @@
         chdir: /home/ec2-user
       args:
         executable: /bin/bash
+      become: yes
+      become_user: ec2-user

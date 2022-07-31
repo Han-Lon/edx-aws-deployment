@@ -210,6 +210,8 @@ resource "aws_ssm_association" "launch-tutor-task" {
     SourceType = "S3"
     SourceInfo = jsonencode({"path": "https://${module.edx-config-bucket.s3_bucket_bucket_regional_domain_name}/${aws_s3_object.ansible-playbook-upload.key}"})
     InstallDependencies = "True"
+    PlaybookFile = aws_s3_object.ansible-playbook-upload.key
+    Verbose = "-vvv"
   }
 
   wait_for_success_timeout_seconds = 1800
