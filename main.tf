@@ -207,7 +207,7 @@ resource "aws_ssm_association" "launch-tutor-task" {
   }
 
   parameters = {
-    SourceInfo = "s3://${aws_s3_object.ansible-playbook-upload.bucket}/${aws_s3_object.ansible-playbook-upload.key}"
+    SourceInfo = jsonencode({"path": "s3://${aws_s3_object.ansible-playbook-upload.bucket}/${aws_s3_object.ansible-playbook-upload.key}"})
   }
 
   wait_for_success_timeout_seconds = 1800
