@@ -1,0 +1,25 @@
+---
+- name: Install and Launch Open edX via Tutor
+  hosts: localhost
+  connection: local
+  become: yes
+  become_user: ec2-user
+
+  tasks:
+    - name: Check if config file exists
+      stat:
+        path: "/home/ec2-user/.local/share/tutor/config.yml"
+      register: config_file
+      retries: 5
+      delay: 5
+      until: config_file.stat.exists
+
+    - name: Pull most recent Open edX containers using Tutor
+      ansible.builtin.shell:
+        cmd: tutor local dc pull
+        chdir: /home/ec2-user
+
+    - name: Start Open edX using Tutor
+      ansible.builtin.shell:
+        cmd: tutor local start --detac
+        chdir: /home/ec2-user

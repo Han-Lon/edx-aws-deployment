@@ -60,6 +60,14 @@ resource "aws_s3_object" "config-file-upload" {
   etag = filemd5("./config.yml")
 }
 
+resource "aws_s3_object" "ansible-playbook-upload" {
+  bucket = module.edx-config-bucket.s3_bucket_id
+  key = "install-and-start-edx.yaml"
+  source = "./install-and-start-edx.yaml"
+
+  etag = filemd5("./install-and-start-edx.yaml")
+}
+
 data "aws_iam_policy_document" "s3-read-policy" {
   statement {
     sid       = "S3GetObjects"
@@ -199,9 +207,7 @@ resource "aws_ssm_association" "launch-tutor-task" {
   }
 
   parameters = {
-    "commands" = "[\"su - ec2-user << EOF\", \"until [ -f .local/share/tutor/config.yml ]\", \"do\", \" sleep 15\", \"done\", \"echo \"Config file found. Executing tutor (Open edX) initialization\"\", \"tutor local dc pull\", \"tutor local start --detach\", \"exit\", \"EOF\"]",
-    "workingDirectory" = "/home/ec2-user",
-    "executionTimeout" = "600"
+    SourceInfo = "s3://${aws_s3_object.ansible-playbook-upload.bucket}/${aws_s3_object.ansible-playbook-upload.key}"
   }
 
   wait_for_success_timeout_seconds = 1800
