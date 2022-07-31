@@ -194,6 +194,7 @@ mkdir -p /home/ec2-user/.local/share/tutor/
 chown -R ec2-user:ec2-user /home/ec2-user/.local/share/tutor/
 aws s3 cp s3://${aws_s3_object.config-file-upload.bucket}/${aws_s3_object.config-file-upload.key} /home/ec2-user/.local/share/tutor/config.yml
 
+chmod 666 /var/run/docker.sock
 EOF
 }
 
