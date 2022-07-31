@@ -144,6 +144,8 @@ resource "aws_spot_instance_request" "edx-spot-instance" {
   instance_type = "m5a.large"
   key_name      = var.ec2_key_name
 
+  wait_for_fulfillment = true  # Needed or else tagging resources below will fail
+
   spot_type = "one-time"
 
   # TODO change both of these when converting to ALB architecture
