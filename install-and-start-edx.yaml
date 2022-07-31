@@ -4,28 +4,33 @@
   connection: local
   become: yes
   become_user: ec2-user
+  environment:
+    PATH: /usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
   tasks:
     - name: Check if config file exists
       stat:
         path: "/home/ec2-user/.local/share/tutor/config.yml"
       register: config_file
-      retries: 5
-      delay: 5
+      retries: 6
+      delay: 20
       until: config_file.stat.exists
 
     - name: Pull most recent Open edX containers using Tutor
       ansible.builtin.shell:
-        cmd: /usr/local/bin/tutor local dc pull
+        cmd: tutor local dc pull && sleep 30 && touch /home/ec2-user/dc-pull-done.status
         chdir: /home/ec2-user
+        creates: /home/ec2-user/dc-pull-done.status
       args:
         executable: /bin/bash
       become: yes
       become_user: ec2-user
+      register: results
+
 
     - name: Start Open edX using Tutor
       ansible.builtin.shell:
-        cmd: /usr/local/bin/tutor local start --detac
+        cmd: tutor local start --detach
         chdir: /home/ec2-user
       args:
         executable: /bin/bash

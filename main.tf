@@ -178,22 +178,27 @@ resource "aws_spot_instance_request" "edx-spot-instance" {
 yum update -y
 
 yum install docker python3-pip gcc python3-devel -y
-yes | pip3 install docker-compose
 systemctl enable docker.service
 systemctl start docker.service
 
 usermod -a -G docker ec2-user
 
+echo "export PATH=/usr/local/bin:$PATH" >> ~/.bashrc
+
+curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
+
 pip3 install "tutor[full]"
 
 mkdir -p /home/ec2-user/.local/share/tutor/
+chown -R ec2-user:ec2-user /home/ec2-user/.local/share/tutor/
 aws s3 cp s3://${aws_s3_object.config-file-upload.bucket}/${aws_s3_object.config-file-upload.key} /home/ec2-user/.local/share/tutor/config.yml
 
 EOF
 }
 
 data "aws_ssm_document" "launch-tutor-doc" {
-  name            = "AWS-ApplyAnsiblePlaybooks"
+  name            = "AWS-RunShellScript"
   document_format = "YAML"
 }
 
@@ -207,11 +212,9 @@ resource "aws_ssm_association" "launch-tutor-task" {
   }
 
   parameters = {
-    SourceType = "S3"
-    SourceInfo = jsonencode({"path": "https://${module.edx-config-bucket.s3_bucket_bucket_regional_domain_name}/${aws_s3_object.ansible-playbook-upload.key}"})
-    InstallDependencies = "True"
-    PlaybookFile = aws_s3_object.ansible-playbook-upload.key
-    Verbose = "-vvv"
+    "commands" = file("./install-and-start-edx.sh"),
+    "workingDirectory" = "/home/ec2-user",
+    "executionTimeout" = "600"
   }
 
   wait_for_success_timeout_seconds = 1800
