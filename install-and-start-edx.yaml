@@ -2,8 +2,8 @@
 - name: Install and Launch Open edX via Tutor
   hosts: localhost
   connection: local
-  become: yes
-  become_user: ec2-user
+#  become: yes
+#  become_user: ec2-user
 
   tasks:
     - name: Check if config file exists
@@ -18,8 +18,12 @@
       ansible.builtin.shell:
         cmd: tutor local dc pull
         chdir: /home/ec2-user
+      args:
+        executable: /bin/bash
 
     - name: Start Open edX using Tutor
       ansible.builtin.shell:
         cmd: tutor local start --detac
         chdir: /home/ec2-user
+      args:
+        executable: /bin/bash
