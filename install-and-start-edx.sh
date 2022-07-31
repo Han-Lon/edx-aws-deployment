@@ -4,7 +4,6 @@ do
      sleep 15
 done
 echo "Config file found. Executing tutor (Open edX) initialization"
-tutor local dc pull
-tutor local start --detach
+/home/ec2-user/install-and-quickstart-edx.exp
 exit
 EOF

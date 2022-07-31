@@ -60,12 +60,12 @@ resource "aws_s3_object" "config-file-upload" {
   etag = filemd5("./config.yml")
 }
 
-resource "aws_s3_object" "ansible-playbook-upload" {
+resource "aws_s3_object" "edx-installation-upload" {
   bucket = module.edx-config-bucket.s3_bucket_id
-  key = "install-and-start-edx.yaml"
-  source = "./install-and-start-edx.yaml"
+  key = "install-and-quickstart-edx.exp"
+  source = "./install-and-quickstart-edx.exp"
 
-  etag = filemd5("./install-and-start-edx.yaml")
+  etag = filemd5("./install-and-quickstart-edx.exp")
 }
 
 data "aws_iam_policy_document" "s3-read-policy" {
@@ -177,7 +177,9 @@ resource "aws_spot_instance_request" "edx-spot-instance" {
 #!/bin/bash
 yum update -y
 
-yum install docker python3-pip gcc python3-devel -y
+amazon-linux-extras install epel -y
+
+yum install docker python3-pip gcc python3-devel haveged expect -y
 systemctl enable docker.service
 systemctl start docker.service
 
@@ -191,8 +193,12 @@ chmod +x /usr/local/bin/docker-compose
 pip3 install "tutor[full]"
 
 mkdir -p /home/ec2-user/.local/share/tutor/
-chown -R ec2-user:ec2-user /home/ec2-user/.local/share/tutor/
 aws s3 cp s3://${aws_s3_object.config-file-upload.bucket}/${aws_s3_object.config-file-upload.key} /home/ec2-user/.local/share/tutor/config.yml
+chown -R ec2-user:ec2-user /home/ec2-user/.local/share/tutor/
+
+aws s3 cp s3://${aws_s3_object.config-file-upload.bucket}/${aws_s3_object.edx-installation-upload.key} /home/ec2-user/install-and-quickstart-edx.exp
+chown ec2-user:ec2-user /home/ec2-user/install-and-quickstart-edx.exp
+chmod 740 /home/ec2-user/install-and-quickstart-edx.exp
 
 chmod 666 /var/run/docker.sock
 EOF
