@@ -45,27 +45,18 @@ if {$force_conservative} {
 set timeout -1
 spawn tutor local quickstart
 match_max 100000
-expect -exact "[32m==================================================\r
-        Interactive platform configuration\r
-==================================================[0m\r
-[33mAre you configuring a production platform? Type 'n' if you are just testing Tutor on your local computer[0m \[Y/n\] "
+expect "\[Y/n\] "
 send -- "Y\r"
-expect -exact "Y\r
-[33mYour website domain name for students (LMS)[0m \[edu.bitular.link\] "
+expect -re "(?n)Your website domain name for students.*"
 send -- "\r"
-expect -exact "\r
-[33mYour website domain name for teachers (CMS)[0m \[studio.edu.bitular.link\] "
+expect -re "(?n)Your website domain name for teachers.*"
 send -- "\r"
-expect -exact "\r
-[33mYour platform name/title[0m \[Sick Ass Open edX\] "
+expect -re "(?n)Your platform name/title.*"
 send -- "\r"
-expect -exact "\r
-[33mYour public contact email address[0m \[contact@edu.bitular.link\] "
+expect -re "(?n)Your public contact email address.*"
 send -- "\r"
-expect -exact "\r
-[33mThe default language code for the platform[0m \[en\] "
+expect -re "(?n)The default language code for the.*"
 send -- "\r"
-expect -exact "\r
-[33mActivate SSL/TLS certificates for HTTPS access? Important note: this will NOT work in a development environment.[0m \[y/N\] "
+expect -re "(?n)Activate SSL/TLS certificates for HTTPS access.*"
 send -- "N\r"
 expect eof
