@@ -113,14 +113,14 @@ resource "aws_security_group" "edx-security-group" {
     from_port   = 80
     protocol    = "tcp"
     to_port     = 80
-    cidr_blocks = ["${var.allowed-ip}/32"]
+    security_groups = [aws_security_group.load-balancer-security-group.id]
   }
 
   ingress {
     from_port   = 443
     protocol    = "tcp"
     to_port     = 443
-    cidr_blocks = ["${var.allowed-ip}/32"]
+    security_groups = [aws_security_group.load-balancer-security-group.id]
   }
 
   ingress {
@@ -156,9 +156,8 @@ resource "aws_spot_instance_request" "edx-spot-instance" {
 
   spot_type = "one-time"
 
-  # TODO change both of these when converting to ALB architecture
-  subnet_id                   = module.edx-vpc.public_subnets[0]
-  associate_public_ip_address = true
+  subnet_id                   = module.edx-vpc.private_subnets[0]
+  associate_public_ip_address = false
 
   vpc_security_group_ids = [aws_security_group.edx-security-group.id]
 
@@ -221,7 +220,7 @@ resource "aws_ssm_association" "launch-tutor-task" {
   parameters = {
     "commands" = file("./install-and-start-edx.sh"),
     "workingDirectory" = "/home/ec2-user",
-    "executionTimeout" = "600"
+    "executionTimeout" = "1800"
   }
 
   wait_for_success_timeout_seconds = 1800
@@ -240,3 +239,66 @@ resource "aws_ec2_tag" "edx-server-tagging" {
   resource_id = aws_spot_instance_request.edx-spot-instance.spot_instance_id
   value       = each.value
 }
+
+resource "aws_security_group" "load-balancer-security-group" {
+  name        = "edx-load-balancer-${var.environment}-sg"
+  vpc_id      = module.edx-vpc.vpc_id
+  description = "Allow inbound access to the edX ALB"
+
+  ingress {
+    from_port   = 80
+    protocol    = "tcp"
+    to_port     = 80
+    cidr_blocks = ["${var.allowed-ip}/32"]
+  }
+
+  ingress {
+    from_port   = 443
+    protocol    = "tcp"
+    to_port     = 443
+    cidr_blocks = ["${var.allowed-ip}/32"]
+  }
+
+  egress {
+    from_port        = 0
+    protocol         = "-1"
+    to_port          = 0
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = {
+    Terraform_Managed = "true"
+    Environment       = var.environment
+    Project           = "Open-edX"
+  }
+}
+
+resource "aws_lb" "edx-load-balancer" {
+  name = "edx-${var.environment}-load-balancer"
+  internal = false
+  load_balancer_type = "application"
+  security_groups = [aws_security_group.load-balancer-security-group.id]
+  subnets = [module.edx-vpc.public_subnets[0], module.edx-vpc.public_subnets[1]]
+
+  tags = {
+    Terraform_Managed = "true"
+    Environment       = var.environment
+    Project           = "Open-edX"
+  }
+}
+
+resource "aws_lb_target_group" "edx-target-group" {
+  name = "edx-${var.environment}-target-group"
+  port = 80
+  protocol = "HTTP" # TODO change to HTTPS
+  vpc_id = module.edx-vpc.vpc_id
+
+  health_check {
+    enabled = true
+    path = "/heartbeat"
+    protocol = "HTTP"
+  }
+}
+
+# TODO add target group attachment
