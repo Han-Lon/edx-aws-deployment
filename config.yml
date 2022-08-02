@@ -3,6 +3,6 @@ CONTACT_EMAIL: contact@${url}
 ENABLE_HTTPS: false
 LANGUAGE_CODE: en
 LMS_HOST: ${url}
-PLATFORM_NAME: Sick Ass Open edX
+PLATFORM_NAME: My Awesome LMS
 PLUGINS:
 - mfe
