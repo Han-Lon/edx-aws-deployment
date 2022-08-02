@@ -20,3 +20,7 @@ variable "ec2_key_name" {
 variable "environment_url" {
   description = "The URL that the instance(s) will be reachable at. e.g. edu.example.com"
 }
+
+variable "lb_certificate_arn" {
+  description = "ARN of the AWS ACM certificate generated for the load balancer. The certificates must be for the same domain as the environment_url value"
+}

@@ -62,7 +62,7 @@ resource "aws_s3_object" "config-file-upload" {
 
 resource "aws_s3_object" "edx-installation-upload" {
   bucket = module.edx-config-bucket.s3_bucket_id
-  key = "install-and-quickstart-edx.exp"
+  key    = "install-and-quickstart-edx.exp"
   source = "./install-and-quickstart-edx.exp"
 
   etag = filemd5("./install-and-quickstart-edx.exp")
@@ -110,16 +110,16 @@ resource "aws_security_group" "edx-security-group" {
   description = "Allow inbound access to the edX server"
 
   ingress {
-    from_port   = 80
-    protocol    = "tcp"
-    to_port     = 80
+    from_port       = 80
+    protocol        = "tcp"
+    to_port         = 80
     security_groups = [aws_security_group.load-balancer-security-group.id]
   }
 
   ingress {
-    from_port   = 443
-    protocol    = "tcp"
-    to_port     = 443
+    from_port       = 443
+    protocol        = "tcp"
+    to_port         = 443
     security_groups = [aws_security_group.load-balancer-security-group.id]
   }
 
@@ -152,7 +152,7 @@ resource "aws_spot_instance_request" "edx-spot-instance" {
   instance_type = "m5a.large"
   key_name      = var.ec2_key_name
 
-  wait_for_fulfillment = true  # Needed or else tagging resources below will fail
+  wait_for_fulfillment = true # Needed or else tagging resources below will fail
 
   spot_type = "one-time"
 
@@ -210,7 +210,7 @@ data "aws_ssm_document" "launch-tutor-doc" {
 
 resource "aws_ssm_association" "launch-tutor-task" {
   depends_on = [aws_spot_instance_request.edx-spot-instance, aws_ec2_tag.edx-server-tagging]
-  name             = data.aws_ssm_document.launch-tutor-doc.name
+  name       = data.aws_ssm_document.launch-tutor-doc.name
 
   targets {
     key    = "tag:Project"
@@ -218,7 +218,7 @@ resource "aws_ssm_association" "launch-tutor-task" {
   }
 
   parameters = {
-    "commands" = file("./install-and-start-edx.sh"),
+    "commands"         = file("./install-and-start-edx.sh"),
     "workingDirectory" = "/home/ec2-user",
     "executionTimeout" = "1800"
   }
@@ -228,13 +228,13 @@ resource "aws_ssm_association" "launch-tutor-task" {
 }
 
 locals {
-  server_tags = {"Project": "Open-edX", "Name": "Open-edX-server"}
+  server_tags = { "Project" : "Open-edX", "Name" : "Open-edX-server" }
 }
 
 # Needed because the spot request resource in Terraform doesn't apply tags to the instance that's created, just the spot request itself
 # https://github.com/hashicorp/terraform/issues/3263
 resource "aws_ec2_tag" "edx-server-tagging" {
-  for_each = local.server_tags
+  for_each    = local.server_tags
   key         = each.key
   resource_id = aws_spot_instance_request.edx-spot-instance.spot_instance_id
   value       = each.value
@@ -274,12 +274,46 @@ resource "aws_security_group" "load-balancer-security-group" {
   }
 }
 
-resource "aws_lb" "edx-load-balancer" {
-  name = "edx-${var.environment}-load-balancer"
-  internal = false
+module "load-balancer" {
+  source = "registry.terraform.io/terraform-aws-modules/alb/aws"
+
+  name = "open-edx-${var.environment}-load-balancer"
+
   load_balancer_type = "application"
+
+  vpc_id          = module.edx-vpc.vpc_id
+  subnets         = [module.edx-vpc.public_subnets[0], module.edx-vpc.public_subnets[1]]
   security_groups = [aws_security_group.load-balancer-security-group.id]
-  subnets = [module.edx-vpc.public_subnets[0], module.edx-vpc.public_subnets[1]]
+
+  target_groups = [
+    {
+      name_prefix      = "open-edx-${var.environment}-"
+      backend_protocol = "HTTP"
+      backend_port     = 80
+      target_type      = "instance"
+      health_check = {
+        enabled  = true
+        path     = "/heartbeat"
+        port     = "traffic-port"
+        protocol = "HTTP"
+      }
+      targets = {
+        edx-server = {
+          target_id = aws_spot_instance_request.edx-spot-instance.spot_instance_id
+          port      = 80
+        }
+      }
+    }
+  ]
+
+  https_listeners = [
+    {
+      port               = 443
+      protocol           = "HTTPS"
+      certificate_arn    = var.lb_certificate_arn
+      target_group_index = 0
+    }
+  ]
 
   tags = {
     Terraform_Managed = "true"
@@ -287,18 +321,3 @@ resource "aws_lb" "edx-load-balancer" {
     Project           = "Open-edX"
   }
 }
-
-resource "aws_lb_target_group" "edx-target-group" {
-  name = "edx-${var.environment}-target-group"
-  port = 80
-  protocol = "HTTP" # TODO change to HTTPS
-  vpc_id = module.edx-vpc.vpc_id
-
-  health_check {
-    enabled = true
-    path = "/heartbeat"
-    protocol = "HTTP"
-  }
-}
-
-# TODO add target group attachment
