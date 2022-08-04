@@ -113,14 +113,14 @@ resource "aws_security_group" "edx-security-group" {
     from_port       = 80
     protocol        = "tcp"
     to_port         = 80
-    cidr_blocks = [var.allowed-ip]
+    cidr_blocks = ["${var.allowed-ip}/32"]
   }
 
   ingress {
     from_port       = 443
     protocol        = "tcp"
     to_port         = 443
-    cidr_blocks = [var.allowed-ip]
+    cidr_blocks = ["${var.allowed-ip}/32"]
   }
 
   ingress {
