@@ -113,14 +113,14 @@ resource "aws_security_group" "edx-security-group" {
     from_port       = 80
     protocol        = "tcp"
     to_port         = 80
-    security_groups = [aws_security_group.load-balancer-security-group.id]
+    cidr_blocks = [var.allowed-ip]
   }
 
   ingress {
     from_port       = 443
     protocol        = "tcp"
     to_port         = 443
-    security_groups = [aws_security_group.load-balancer-security-group.id]
+    cidr_blocks = [var.allowed-ip]
   }
 
   ingress {
@@ -238,86 +238,4 @@ resource "aws_ec2_tag" "edx-server-tagging" {
   key         = each.key
   resource_id = aws_spot_instance_request.edx-spot-instance.spot_instance_id
   value       = each.value
-}
-
-resource "aws_security_group" "load-balancer-security-group" {
-  name        = "edx-load-balancer-${var.environment}-sg"
-  vpc_id      = module.edx-vpc.vpc_id
-  description = "Allow inbound access to the edX ALB"
-
-  ingress {
-    from_port   = 80
-    protocol    = "tcp"
-    to_port     = 80
-    cidr_blocks = ["${var.allowed-ip}/32"]
-  }
-
-  ingress {
-    from_port   = 443
-    protocol    = "tcp"
-    to_port     = 443
-    cidr_blocks = ["${var.allowed-ip}/32"]
-  }
-
-  egress {
-    from_port        = 0
-    protocol         = "-1"
-    to_port          = 0
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
-  tags = {
-    Terraform_Managed = "true"
-    Environment       = var.environment
-    Project           = "Open-edX"
-  }
-}
-
-module "load-balancer" {
-  source = "registry.terraform.io/terraform-aws-modules/alb/aws"
-
-  name = "open-edx-${var.environment}-load-balancer"
-
-  load_balancer_type = "application"
-
-  vpc_id          = module.edx-vpc.vpc_id
-  subnets         = [module.edx-vpc.public_subnets[0], module.edx-vpc.public_subnets[1]]
-  security_groups = [aws_security_group.load-balancer-security-group.id]
-
-  target_groups = [
-    {
-      name_prefix      = "edx-"
-      backend_protocol = "HTTP"
-      backend_port     = 80
-      target_type      = "instance"
-      health_check = {
-        enabled  = true
-        path     = "/heartbeat"
-        port     = "traffic-port"
-        protocol = "HTTP"
-      }
-      targets = {
-        edx-server = {
-          target_id = aws_spot_instance_request.edx-spot-instance.spot_instance_id
-          port      = 80
-        }
-      }
-    }
-  ]
-
-  https_listeners = [
-    {
-      port               = 443
-      protocol           = "HTTPS"
-      certificate_arn    = var.lb_certificate_arn
-      target_group_index = 0
-    }
-  ]
-
-  tags = {
-    Terraform_Managed = "true"
-    Environment       = var.environment
-    Project           = "Open-edX"
-  }
 }
