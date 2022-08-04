@@ -287,7 +287,7 @@ module "load-balancer" {
 
   target_groups = [
     {
-      name_prefix      = "open-edx-${var.environment}-"
+      name_prefix      = "edx-"
       backend_protocol = "HTTP"
       backend_port     = 80
       target_type      = "instance"
