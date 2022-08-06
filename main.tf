@@ -1,3 +1,7 @@
+locals {
+  server_tags = { "Project" : "Open-edX", "Name" : "Open-edX-server" }
+}
+
 # Dynamically grab the most recent AWS AL2 AMI
 data "aws_ami" "al2-ami" {
   owners      = ["amazon"]
@@ -14,8 +18,10 @@ data "aws_ami" "al2-ami" {
   }
 }
 
+# Used to refer to the current AWS account ID
 data "aws_caller_identity" "current_account" {}
 
+# Stand up a new VPC specifically for the Open edX environment
 module "edx-vpc" {
   source = "registry.terraform.io/terraform-aws-modules/vpc/aws"
 
@@ -36,6 +42,7 @@ module "edx-vpc" {
   }
 }
 
+# Set up an S3 bucket for holding the basic config/installation files
 module "edx-config-bucket" {
   source = "registry.terraform.io/terraform-aws-modules/s3-bucket/aws"
 
@@ -44,6 +51,7 @@ module "edx-config-bucket" {
 
 }
 
+# Format the config.yml file with the environment_url
 resource "local_file" "config-file-formatted" {
   filename = "formatted-config.yml"
   content = templatefile("./config.yml", {
@@ -51,6 +59,7 @@ resource "local_file" "config-file-formatted" {
   })
 }
 
+# Upload the above config.yml file to the config S3 bucket
 resource "aws_s3_object" "config-file-upload" {
   bucket = module.edx-config-bucket.s3_bucket_id
   key    = "config.yml"
@@ -60,6 +69,7 @@ resource "aws_s3_object" "config-file-upload" {
   etag = filemd5("./config.yml")
 }
 
+# Upload the Open edX Expect script
 resource "aws_s3_object" "edx-installation-upload" {
   bucket = module.edx-config-bucket.s3_bucket_id
   key    = "install-and-quickstart-edx.exp"
@@ -68,6 +78,7 @@ resource "aws_s3_object" "edx-installation-upload" {
   etag = filemd5("./install-and-quickstart-edx.exp")
 }
 
+# Set up an S3 read policy so the app server can pull config from S3
 data "aws_iam_policy_document" "s3-read-policy" {
   statement {
     sid       = "S3GetObjects"
@@ -104,6 +115,7 @@ module "s3_access_role" {
   ]
 }
 
+# Set up a security group for the Open edX app server
 resource "aws_security_group" "edx-security-group" {
   name        = "edx-server-${var.environment}-sg"
   vpc_id      = module.edx-vpc.vpc_id
@@ -113,14 +125,14 @@ resource "aws_security_group" "edx-security-group" {
     from_port       = 80
     protocol        = "tcp"
     to_port         = 80
-    security_groups = [aws_security_group.load-balancer-security-group.id]
+    cidr_blocks = ["${var.allowed-ip}/32"]
   }
 
   ingress {
     from_port       = 443
     protocol        = "tcp"
     to_port         = 443
-    security_groups = [aws_security_group.load-balancer-security-group.id]
+    cidr_blocks = ["${var.allowed-ip}/32"]
   }
 
   ingress {
@@ -178,19 +190,25 @@ yum update -y
 
 amazon-linux-extras install epel -y
 
+# Install dependencies, run docker
 yum install docker python3-pip gcc python3-devel haveged expect -y
 systemctl enable docker.service
 systemctl start docker.service
 
+# Allow non-root ec2-user to run docker commands
 usermod -a -G docker ec2-user
 
+# docker-compose gets installed to /usr/local/bin, which is not in root's PATH by default
 echo "export PATH=/usr/local/bin:$PATH" >> ~/.bashrc
 
+# Install docker-compose from source
 curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
+# Install the Tutor utility for isntalling Open edX
 pip3 install "tutor[full]"
 
+# Copy config files from S3 to relevant path locally, set up file ownership
 mkdir -p /home/ec2-user/.local/share/tutor/
 aws s3 cp s3://${aws_s3_object.config-file-upload.bucket}/${aws_s3_object.config-file-upload.key} /home/ec2-user/.local/share/tutor/config.yml
 chown -R ec2-user:ec2-user /home/ec2-user/.local/share/tutor/
@@ -203,11 +221,22 @@ chmod 666 /var/run/docker.sock
 EOF
 }
 
+# Needed because the spot request resource in Terraform doesn't apply tags to the instance that's created, just the spot request itself
+# https://github.com/hashicorp/terraform/issues/3263
+resource "aws_ec2_tag" "edx-server-tagging" {
+  for_each    = local.server_tags
+  key         = each.key
+  resource_id = aws_spot_instance_request.edx-spot-instance.spot_instance_id
+  value       = each.value
+}
+
+# Pull in the AWS-provided RunShellScript SSM doc
 data "aws_ssm_document" "launch-tutor-doc" {
   name            = "AWS-RunShellScript"
   document_format = "YAML"
 }
 
+# Set up an SSM State Manager association for the app server, so the RunShellScript doc will run against all app servers
 resource "aws_ssm_association" "launch-tutor-task" {
   depends_on = [aws_spot_instance_request.edx-spot-instance, aws_ec2_tag.edx-server-tagging]
   name       = data.aws_ssm_document.launch-tutor-doc.name
@@ -225,99 +254,4 @@ resource "aws_ssm_association" "launch-tutor-task" {
 
   wait_for_success_timeout_seconds = 1800
 
-}
-
-locals {
-  server_tags = { "Project" : "Open-edX", "Name" : "Open-edX-server" }
-}
-
-# Needed because the spot request resource in Terraform doesn't apply tags to the instance that's created, just the spot request itself
-# https://github.com/hashicorp/terraform/issues/3263
-resource "aws_ec2_tag" "edx-server-tagging" {
-  for_each    = local.server_tags
-  key         = each.key
-  resource_id = aws_spot_instance_request.edx-spot-instance.spot_instance_id
-  value       = each.value
-}
-
-resource "aws_security_group" "load-balancer-security-group" {
-  name        = "edx-load-balancer-${var.environment}-sg"
-  vpc_id      = module.edx-vpc.vpc_id
-  description = "Allow inbound access to the edX ALB"
-
-  ingress {
-    from_port   = 80
-    protocol    = "tcp"
-    to_port     = 80
-    cidr_blocks = ["${var.allowed-ip}/32"]
-  }
-
-  ingress {
-    from_port   = 443
-    protocol    = "tcp"
-    to_port     = 443
-    cidr_blocks = ["${var.allowed-ip}/32"]
-  }
-
-  egress {
-    from_port        = 0
-    protocol         = "-1"
-    to_port          = 0
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
-  tags = {
-    Terraform_Managed = "true"
-    Environment       = var.environment
-    Project           = "Open-edX"
-  }
-}
-
-module "load-balancer" {
-  source = "registry.terraform.io/terraform-aws-modules/alb/aws"
-
-  name = "open-edx-${var.environment}-load-balancer"
-
-  load_balancer_type = "application"
-
-  vpc_id          = module.edx-vpc.vpc_id
-  subnets         = [module.edx-vpc.public_subnets[0], module.edx-vpc.public_subnets[1]]
-  security_groups = [aws_security_group.load-balancer-security-group.id]
-
-  target_groups = [
-    {
-      name_prefix      = "edx-"
-      backend_protocol = "HTTP"
-      backend_port     = 80
-      target_type      = "instance"
-      health_check = {
-        enabled  = true
-        path     = "/heartbeat"
-        port     = "traffic-port"
-        protocol = "HTTP"
-      }
-      targets = {
-        edx-server = {
-          target_id = aws_spot_instance_request.edx-spot-instance.spot_instance_id
-          port      = 80
-        }
-      }
-    }
-  ]
-
-  https_listeners = [
-    {
-      port               = 443
-      protocol           = "HTTPS"
-      certificate_arn    = var.lb_certificate_arn
-      target_group_index = 0
-    }
-  ]
-
-  tags = {
-    Terraform_Managed = "true"
-    Environment       = var.environment
-    Project           = "Open-edX"
-  }
 }
