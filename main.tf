@@ -125,14 +125,22 @@ resource "aws_security_group" "edx-security-group" {
     from_port       = 80
     protocol        = "tcp"
     to_port         = 80
-    cidr_blocks = ["${var.allowed-ip}/32"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
     from_port       = 443
     protocol        = "tcp"
     to_port         = 443
-    cidr_blocks = ["${var.allowed-ip}/32"]
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Extra ports needed for Open edX APIs and subsystems
+  ingress {
+    from_port = 18000
+    protocol  = "tcp"
+    to_port   = 18999
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
