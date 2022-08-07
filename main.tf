@@ -1,25 +1,6 @@
-locals {
-  server_tags = { "Project" : "Open-edX", "Name" : "Open-edX-server" }
-}
-
-# Dynamically grab the most recent AWS AL2 AMI
-data "aws_ami" "al2-ami" {
-  owners      = ["amazon"]
-  most_recent = true
-
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-kernel-5.10-hvm-*"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-}
-
-# Used to refer to the current AWS account ID
-data "aws_caller_identity" "current_account" {}
+#############################################
+## VPC and Security Group Networking Setup ##
+#############################################
 
 # Stand up a new VPC specifically for the Open edX environment
 module "edx-vpc" {
@@ -42,79 +23,6 @@ module "edx-vpc" {
   }
 }
 
-# Set up an S3 bucket for holding the basic config/installation files
-module "edx-config-bucket" {
-  source = "registry.terraform.io/terraform-aws-modules/s3-bucket/aws"
-
-  bucket = "edx-config-${var.environment}-${data.aws_caller_identity.current_account.account_id}-bucket"
-  acl    = "private"
-
-}
-
-# Format the config.yml file with the environment_url
-resource "local_file" "config-file-formatted" {
-  filename = "formatted-config.yml"
-  content = templatefile("./config.yml", {
-    url = var.environment_url
-  })
-}
-
-# Upload the above config.yml file to the config S3 bucket
-resource "aws_s3_object" "config-file-upload" {
-  bucket = module.edx-config-bucket.s3_bucket_id
-  key    = "config.yml"
-  source = local_file.config-file-formatted.filename
-
-
-  etag = filemd5("./config.yml")
-}
-
-# Upload the Open edX Expect script
-resource "aws_s3_object" "edx-installation-upload" {
-  bucket = module.edx-config-bucket.s3_bucket_id
-  key    = "install-and-quickstart-edx.exp"
-  source = "./install-and-quickstart-edx.exp"
-
-  etag = filemd5("./install-and-quickstart-edx.exp")
-}
-
-# Set up an S3 read policy so the app server can pull config from S3
-data "aws_iam_policy_document" "s3-read-policy" {
-  statement {
-    sid       = "S3GetObjects"
-    actions   = ["s3:GetObject", "s3:GetObjectAcl"]
-    resources = ["${module.edx-config-bucket.s3_bucket_arn}/*"]
-  }
-}
-
-module "s3_access_policy" {
-  source = "registry.terraform.io/terraform-aws-modules/iam/aws//modules/iam-policy"
-
-  name        = "edx-get-object-${var.environment}-policy"
-  path        = "/"
-  description = "Allow getting objects from the edx config bucket"
-
-  policy = data.aws_iam_policy_document.s3-read-policy.json
-}
-
-module "s3_access_role" {
-  source = "registry.terraform.io/terraform-aws-modules/iam/aws//modules/iam-assumable-role"
-
-  trusted_role_services = [
-    "ec2.amazonaws.com"
-  ]
-
-  create_role             = true
-  create_instance_profile = true
-  role_requires_mfa       = false
-
-  role_name = "edx-server-${var.environment}-role"
-  custom_role_policy_arns = [
-    module.s3_access_policy.arn,
-    "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
-  ]
-}
-
 # Set up a security group for the Open edX app server
 resource "aws_security_group" "edx-security-group" {
   name        = "edx-server-${var.environment}-sg"
@@ -122,24 +30,24 @@ resource "aws_security_group" "edx-security-group" {
   description = "Allow inbound access to the edX server"
 
   ingress {
-    from_port       = 80
-    protocol        = "tcp"
-    to_port         = 80
+    from_port   = 80
+    protocol    = "tcp"
+    to_port     = 80
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
-    from_port       = 443
-    protocol        = "tcp"
-    to_port         = 443
+    from_port   = 443
+    protocol    = "tcp"
+    to_port     = 443
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   # Extra ports needed for Open edX APIs and subsystems
   ingress {
-    from_port = 18000
-    protocol  = "tcp"
-    to_port   = 18999
+    from_port   = 18000
+    protocol    = "tcp"
+    to_port     = 18999
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -164,6 +72,10 @@ resource "aws_security_group" "edx-security-group" {
     Project           = "Open-edX"
   }
 }
+
+#########################################################
+## App Server Setup (Using EC2 Spot Instance Requests) ##
+#########################################################
 
 # Spot instance request for the edX spot instance
 # You probably wouldn't want to use a spot instance for production!!!
@@ -236,30 +148,4 @@ resource "aws_ec2_tag" "edx-server-tagging" {
   key         = each.key
   resource_id = aws_spot_instance_request.edx-spot-instance.spot_instance_id
   value       = each.value
-}
-
-# Pull in the AWS-provided RunShellScript SSM doc
-data "aws_ssm_document" "launch-tutor-doc" {
-  name            = "AWS-RunShellScript"
-  document_format = "YAML"
-}
-
-# Set up an SSM State Manager association for the app server, so the RunShellScript doc will run against all app servers
-resource "aws_ssm_association" "launch-tutor-task" {
-  depends_on = [aws_spot_instance_request.edx-spot-instance, aws_ec2_tag.edx-server-tagging]
-  name       = data.aws_ssm_document.launch-tutor-doc.name
-
-  targets {
-    key    = "tag:Project"
-    values = ["Open-edX"]
-  }
-
-  parameters = {
-    "commands"         = file("./install-and-start-edx.sh"),
-    "workingDirectory" = "/home/ec2-user",
-    "executionTimeout" = "1800"
-  }
-
-  wait_for_success_timeout_seconds = 1800
-
 }
