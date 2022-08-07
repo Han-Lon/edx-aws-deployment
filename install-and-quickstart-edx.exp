@@ -58,5 +58,5 @@ send -- "\r"
 expect -re "(?n)The default language code for the.*"
 send -- "\r"
 expect -re "(?n)Activate SSL/TLS certificates for HTTPS access.*"
-send -- "N\r"
+send -- "y\r"
 expect eof
