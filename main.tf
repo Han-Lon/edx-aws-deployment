@@ -89,7 +89,7 @@ resource "aws_spot_instance_request" "edx-spot-instance" {
   spot_type = "one-time"
 
   subnet_id                   = module.edx-vpc.public_subnets[0]
-  associate_public_ip_address = true
+  associate_public_ip_address = false
 
   vpc_security_group_ids = [aws_security_group.edx-security-group.id]
 
