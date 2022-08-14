@@ -1,6 +1,7 @@
 ### What is this?
 * A demo of deploying a complex application with Terraform Cloud in an automated CICD pipeline and AWS Systems Manager (for advanced bootstrapping).
   * I've picked [Open edX](https://openedx.org/) for this purpose, since it's a free and open-source learning management system (LMS)
+* Check out the formal writeup at my freelancing site, [Red Bell Software](https://www.redbellsoftware.com/posts/open-edx-writeup/)
 
 ### Why did you build this?
 * I wanted to demo how you can host specific applications and platforms on AWS in an automated way using Terraform Cloud and AWS Systems Manager
@@ -10,7 +11,7 @@
 ### Notes
 * This is NOT a full production-ready installation and configuration of Open edX. Open edX requires much more setup, configuration, and hardening
   * The point of Open edX is to only showcase Terraform Cloud and AWS Systems Manager, specifically State Manager and Run Command
-  * However, this _could_ be adapted into more production-ready code. The MIT license is very permissive.
+  * However, this _could_ be adapted into more production-ready code. The Apache-2.0 license is very permissive.
   * You can also hire my services for a more thorough, personalized build. [Check out my freelancing site](https://www.redbellsoftware.com/)
   
 ### Workaround for issue with Pycharm and interpreting Terraform modules (could not locate module, unknown error)
